@@ -1,7 +1,5 @@
 package util;
 
-import javafx.beans.property.SimpleDoubleProperty;
-
 public class Cuota {
 
     private int numero;
@@ -10,8 +8,24 @@ public class Cuota {
     private double capitalInicial;
     private double intereses;
     private double capitalAmortizado;
-    private final SimpleDoubleProperty cuota = new SimpleDoubleProperty();
+    private double cuota;
     private double capitalPendiente;
+
+    // Default constructor
+    public Cuota() {}
+
+    // Constructor to initialize with JSON data
+    public Cuota(int numero, int anyo, int mes, double capitalInicial, double intereses,
+                 double capitalAmortizado, double cuota, double capitalPendiente) {
+        this.numero = numero;
+        this.anyo = anyo;
+        this.mes = mes;
+        this.capitalInicial = capitalInicial;
+        this.intereses = intereses;
+        this.capitalAmortizado = capitalAmortizado;
+        this.cuota = cuota;
+        this.capitalPendiente = capitalPendiente;
+    }
 
     public int getNumero() {
         return numero;
@@ -62,15 +76,11 @@ public class Cuota {
     }
 
     public double getCuota() {
-        return cuota.get();
-    }
-
-    public SimpleDoubleProperty cuotaProperty() {
         return cuota;
     }
 
     public void setCuota(double cuota) {
-        this.cuota.set(cuota);
+        this.cuota = cuota;
     }
 
     public double getCapitalPendiente() {

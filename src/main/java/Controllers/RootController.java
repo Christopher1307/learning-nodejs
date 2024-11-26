@@ -1,42 +1,52 @@
 package Controllers;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
-import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
-import javafx.stage.Stage;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 import util.Cuota;
-import util.Formacion;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
+import java.net.URI;
+import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.List;
+import java.util.ResourceBundle;
 
 public class RootController {
-
-    @FXML
-    private TableColumn<Formacion, String> DenominationTableColumn;
-
-    @FXML
-    private TableColumn<Formacion, String> FromTableColumn;
 
     @FXML
     private TableView<Cuota> HipotecaTable;
 
     @FXML
-    private TableColumn<Cuota, Number> ResultTableColumn;
+    private TableColumn<Cuota, Number> NumeroTableColumn;
+
+    @FXML
+    private TableColumn<Cuota, Number> AnyoTableColumn;
+
+    @FXML
+    private TableColumn<Cuota, Number> MesTableColumn;
+
+    @FXML
+    private TableColumn<Cuota, Number> CapitalInicialTableColumn;
+
+    @FXML
+    private TableColumn<Cuota, Number> InteresesTableColumn;
+
+    @FXML
+    private TableColumn<Cuota, Number> CapitalAmortizadoTableColumn;
+
+    @FXML
+    private TableColumn<Cuota, Number> CuotaTableColumn;
+
+    @FXML
+    private TableColumn<Cuota, Number> CapitalPendienteTableColumn;
 
     @FXML
     private Button calculateButton;
@@ -54,109 +64,81 @@ public class RootController {
     private TextField interestTextField;
 
     @FXML
-    private TableColumn<Formacion, String> organizationTableColumn;
-
-    @FXML
-    private BorderPane root;
-
-    @FXML
-    private TableColumn<Formacion, String> untilTableColumn;
-
-    @FXML
     private Label yearsLabel;
 
     @FXML
     private TextField yearsTextField;
 
     @FXML
-    private TableView<Formacion> formacionTable;
+    private TextArea responseTextArea;
 
     @FXML
-    private TableColumn<Formacion, String> ResultTableColumnFormacion;
+    private BorderPane root;
 
-    private final OkHttpClient client = new OkHttpClient();
-    private final List<Formacion> formaciones = new ArrayList<>();
+    private final HttpClient client = HttpClient.newHttpClient();
 
     @FXML
-    void initialize() {
-        DenominationTableColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getDenomination()));
-        FromTableColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getFrom()));
-        untilTableColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getUntil()));
-        organizationTableColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getOrganization()));
-        ResultTableColumnFormacion.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getResult()));
-
-        // Set up the ResultTableColumn to display the calculated results
-        ResultTableColumn.setCellValueFactory(cellData -> cellData.getValue().cuotaProperty());
+    public void initialize(URL location, ResourceBundle resources) {
+        NumeroTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getNumero()));
+        AnyoTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getAnyo()));
+        MesTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getMes()));
+        CapitalInicialTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getCapitalInicial()));
+        InteresesTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getIntereses()));
+        CapitalAmortizadoTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getCapitalAmortizado()));
+        CuotaTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getCuota()));
+        CapitalPendienteTableColumn.setCellValueFactory(cellData -> new SimpleObjectProperty<>(cellData.getValue().getCapitalPendiente()));
     }
 
     @FXML
     void onCalculateAction(ActionEvent event) {
-        Formacion selectedFormacion = formacionTable.getSelectionModel().getSelectedItem();
-        if (selectedFormacion == null) {
-            System.out.println("No formation selected");
-            return;
-        }
-
-        String capital = capitalTextField.getText();
-        String interest = interestTextField.getText();
-        String years = yearsTextField.getText();
-
-        String url = String.format("http://localhost:3000/hipoteca?capital=%s&interes=%s&plazo=%s", capital, interest, years);
-
-        Request request = new Request.Builder()
-                .url(url)
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful() && response.body() != null) {
-                String jsonResponse = response.body().string();
-                Gson gson = new Gson();
-                // Parse the JSON object
-                JsonObject jsonObject = gson.fromJson(jsonResponse, JsonObject.class);
-                // Extract the "cuotas" array
-                JsonArray cuotasArray = jsonObject.getAsJsonArray("cuotas");
-                Type listType = new TypeToken<List<Cuota>>() {}.getType();
-                List<Cuota> cuotas = gson.fromJson(cuotasArray, listType);
-                HipotecaTable.getItems().setAll(cuotas);
-
-                // Update the result for the selected formation
-                selectedFormacion.setResult("Calculated");
-                formacionTable.refresh();
-            } else {
-                System.out.println("Request failed: " + response.message());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @FXML
-    void onAddFormacionView(ActionEvent event) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/FormacionView.fxml"));
-            Parent root = loader.load();
-            FormacionController formacionController = loader.getController();
-            formacionController.setRootController(this);
+            // Obtener los valores de los campos de texto
+            String capital = capitalTextField.getText();
+            String interes = interestTextField.getText();
+            String plazo = yearsTextField.getText();
 
-            Stage stage = new Stage();
-            stage.setTitle("Agregar Formacion");
-            stage.setScene(new Scene(root));
-            stage.show();
-        } catch (IOException e) {
+            // Verificar que los campos no están vacíos
+            if (capital.isEmpty() || interes.isEmpty() || plazo.isEmpty()) {
+                responseTextArea.setText("Por favor, ingresa todos los valores.");
+                return;
+            }
+
+            // Construir la URL con los parámetros ingresados
+            String apiUrl = String.format("http://localhost:3000/hipoteca?capital=%s&interes=%s&plazo=%s", capital, interes, plazo);
+
+            // Crear un HttpRequest para realizar la solicitud HTTP GET
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiUrl))
+                    .build();
+
+            // Realizar la solicitud y obtener la respuesta como String
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            String jsonResponse = response.body();
+
+            // Imprimir la respuesta JSON para depuración
+            System.out.println("JSON Response: " + jsonResponse);
+
+            // Usar Gson para procesar el JSON
+            Gson gson = new Gson();
+            JsonObject jsonObject = gson.fromJson(jsonResponse, JsonObject.class);
+
+            if (jsonObject.has("cuotas")) {
+                // Convertir el array de cuotas en una lista de objetos Cuota
+                Type listType = new TypeToken<List<Cuota>>() {}.getType();
+                List<Cuota> cuotasList = gson.fromJson(jsonObject.getAsJsonArray("cuotas"), listType);
+
+                // Mostrar las cuotas en el TextArea
+                cuotasList.forEach(System.out::println);
+
+                // Cargar los datos al TableView
+                HipotecaTable.getItems().setAll(cuotasList);
+            } else {
+                responseTextArea.setText("No se encontraron cuotas en la respuesta.");
+            }
+
+        } catch (Exception e) {
             e.printStackTrace();
+            responseTextArea.setText("Ocurrió un error al procesar los datos.");
         }
-    }
-
-    public void addFormacion(Formacion formacion) {
-        formaciones.add(formacion);
-        formacionTable.getItems().setAll(formaciones);
-    }
-
-    public BorderPane getRoot() {
-        return root;
-    }
-
-    public void setRoot(BorderPane root) {
-        this.root = root;
     }
 }
